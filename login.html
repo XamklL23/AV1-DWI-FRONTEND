@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acceso | Sistema</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+</head>
+
+<style>
+.input{
+    width:100%;
+    padding:12px;
+    border-radius:12px;
+    background:rgba(255,255,255,.2);
+    color:white;
+    border:1px solid rgba(255,255,255,.2);
+    outline:none;
+}
+
+.input-dark{
+    width:100%;
+    padding:12px;
+    border-radius:12px;
+    border:1px solid #ddd;
+    outline:none;
+}
+
+/* estados */
+.valid { box-shadow:0 0 0 2px #22c55e; }
+.invalid { box-shadow:0 0 0 2px #ef4444; }
+
+/* animación modal */
+@keyframes fadeIn {
+    from {opacity:0; transform:scale(.95);}
+    to {opacity:1; transform:scale(1);}
+}
+.animate-fade { animation:fadeIn .2s ease; }
+</style>
+
+<body class="bg-gradient-to-br from-indigo-600 via-purple-600 to-slate-900 min-h-screen flex items-center justify-center font-[Inter]">
+
+<!-- CARD -->
+<div class="w-full max-w-md p-6">
+
+    <div class="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl shadow-2xl p-8">
+
+        <!-- LOGO -->
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto bg-white/20 rounded-2xl flex items-center justify-center mb-3">
+                <i class="fas fa-user-shield text-white text-2xl"></i>
+            </div>
+            <h1 class="text-white text-2xl font-bold">Sistema de Acceso</h1>
+            <p class="text-white/70 text-sm">Inicia sesión o crea tu cuenta</p>
+        </div>
+
+        <!-- LOGIN -->
+        <form id="loginForm" class="space-y-4">
+
+            <div>
+                <input 
+                type="email" 
+                id="loginEmail"
+                required
+                placeholder="Correo electrónico"
+                class="input">
+            </div>
+
+            <div>
+                <input 
+                type="password" 
+                id="loginPassword"
+                required
+                placeholder="Contraseña"
+                class="input">
+            </div>
+
+            <div id="loginError" class="hidden text-red-300 text-sm text-center">
+                Credenciales incorrectas
+            </div>
+
+            <button class="w-full bg-indigo-500 hover:bg-indigo-600 text-white py-3 rounded-xl font-semibold transition">
+                Iniciar sesión
+            </button>
+
+        </form>
+
+        <!-- SWITCH -->
+        <p class="text-center text-white/70 text-sm mt-5">
+            ¿No tienes cuenta?
+            <button onclick="toggleRegister(true)" class="text-white font-semibold hover:underline">
+                Crear cuenta
+            </button>
+        </p>
+
+    </div>
+</div>
+
+<!-- REGISTER MODAL -->
+<div id="registerModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center">
+
+    <div class="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl animate-fade">
+
+        <h2 class="text-xl font-bold mb-6 text-center">Crear cuenta</h2>
+
+        <div class="space-y-5">
+
+            <!-- NOMBRE -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    Nombre completo
+                </label>
+                <div class="relative">
+                    <i class="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="regNombre"
+                        class="input-dark pl-10"
+                        placeholder="Ej: Juan Pérez">
+                </div>
+            </div>
+
+            <!-- EMAIL (USUARIO) -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    Usuario (correo electrónico)
+                </label>
+                <div class="relative">
+                    <i class="fas fa-envelope absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input 
+                        type="email" 
+                        id="regEmail"
+                        required
+                        placeholder="usuario@email.com"
+                        class="input-dark pl-10">
+                </div>
+            </div>
+
+            <!-- PASSWORD -->
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">
+                    Contraseña
+                </label>
+                <div class="relative">
+                    <i class="fas fa-lock absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input 
+                        type="password" 
+                        id="regPassword"
+                        placeholder="Mínimo 6 caracteres"
+                        class="input-dark pl-10">
+                </div>
+            </div>
+
+            <!-- MENSAJES -->
+            <div id="registerError" class="hidden text-red-500 text-sm text-center"></div>
+            <div id="registerSuccess" class="hidden text-green-600 text-sm text-center"></div>
+
+            <!-- BOTONES -->
+            <button onclick="registrar()"
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-semibold transition">
+                Crear cuenta
+            </button>
+
+            <button onclick="toggleRegister(false)"
+                class="w-full text-sm text-gray-500 hover:underline mt-2">
+                Cancelar
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api';
+
+// ===== UTIL =====
+function esEmailValido(email){
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// 🔥 PARSER UNIVERSAL (SOLUCIÓN REAL)
+async function parseResponse(res){
+    const text = await res.text();
+
+    let data;
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        data = { message: text };
+    }
+
+    if (!res.ok) {
+        throw new Error(data?.message || "Error en la petición");
+    }
+
+    return data;
+}
+
+// ===== VALIDACIÓN EN VIVO =====
+function activarValidacion(input, tipo){
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+        let valido = false;
+
+        if(tipo === 'email'){
+            valido = esEmailValido(input.value);
+        } else if(tipo === 'password'){
+            valido = input.value.length >= 6;
+        } else {
+            valido = input.value.trim().length > 2;
+        }
+
+        input.classList.remove('valid','invalid');
+
+        if(input.value === '') return;
+
+        input.classList.add(valido ? 'valid' : 'invalid');
+    });
+}
+
+// activar validaciones
+activarValidacion(document.getElementById('loginEmail'),'email');
+activarValidacion(document.getElementById('loginPassword'),'password');
+activarValidacion(document.getElementById('regNombre'),'text');
+activarValidacion(document.getElementById('regEmail'),'email');
+activarValidacion(document.getElementById('regPassword'),'password');
+
+
+// ===== LOGIN =====
+document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+
+    const loginError = document.getElementById('loginError');
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    loginError.classList.add('hidden');
+
+    if (!esEmailValido(email)) {
+        loginError.textContent = "Correo inválido";
+        loginError.classList.remove('hidden');
+        return;
+    }
+
+    if (!password) {
+        loginError.textContent = "Ingresa tu contraseña";
+        loginError.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API}/auth/login`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({email,password})
+        });
+
+        const data = await parseResponse(res);
+
+        localStorage.setItem('token', data.token);
+
+        window.location.href = 'index.html';
+
+    } catch(err){
+        loginError.textContent = err.message;
+        loginError.classList.remove('hidden');
+    }
+});
+
+
+// ===== MODAL =====
+function toggleRegister(show){
+    document.getElementById('registerModal')
+        .classList.toggle('hidden', !show);
+}
+
+
+// ===== REGISTER =====
+async function registrar(){
+
+    const nombre = document.getElementById('regNombre').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+
+    const registerError = document.getElementById('registerError');
+    const registerSuccess = document.getElementById('registerSuccess');
+
+    registerError.classList.add('hidden');
+    registerSuccess.classList.add('hidden');
+
+    if(nombre.length < 3){
+        mostrarError("Nombre muy corto");
+        return;
+    }
+
+    if(!esEmailValido(email)){
+        mostrarError("Correo inválido");
+        return;
+    }
+
+    if(password.length < 6){
+        mostrarError("Mínimo 6 caracteres");
+        return;
+    }
+
+    try{
+        const res = await fetch(`${API}/auth/register`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({nombre,email,password})
+        });
+
+        const data = await parseResponse(res);
+
+        registerSuccess.textContent = "Cuenta creada ✔";
+        registerSuccess.classList.remove('hidden');
+
+        // limpiar campos
+        document.getElementById('regNombre').value = '';
+        document.getElementById('regEmail').value = '';
+        document.getElementById('regPassword').value = '';
+
+        setTimeout(()=>toggleRegister(false),1500);
+
+    }catch(err){
+        mostrarError(err.message);
+    }
+}
+
+function mostrarError(msg){
+    const registerError = document.getElementById('registerError');
+    registerError.textContent = msg;
+    registerError.classList.remove('hidden');
+}
+
+// ESC
+document.addEventListener('keydown', e=>{
+    if(e.key==='Escape') toggleRegister(false);
+});
+</script>
+
+</body>
+</html>
