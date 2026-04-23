@@ -5,6 +5,21 @@ const token = localStorage.getItem('token');
 if (!token) {
     window.location.replace('index.html');
 }
+
+
+function formatFecha(fecha) {
+    if (!fecha) return '—';
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return '—';
+
+    return d.toLocaleString('es-PE', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
 // ── INIT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     cargarTickets();
@@ -160,91 +175,208 @@ function renderizarTickets(tickets) {
 // ── DETALLE TICKET ────────────────────────────────────────────
 async function abrirDetalleTicket(id) {
     try {
-        const res    = await fetch(`${API}/tickets/${id}`, { headers: headers() });
+        const res = await fetch(`${API}/tickets/${id}`, { headers: headers() });
         const ticket = await res.json();
 
-        // Cargar comentarios
+        // ─────────────────────────────────────────────
+        // COMENTARIOS
+        // ─────────────────────────────────────────────
         const resComentarios = await fetch(
-            `${API}/tickets/${id}/comments`, { headers: headers() });
+            `${API}/tickets/${id}/comments`,
+            { headers: headers() }
+        );
+
         const comentarios = await resComentarios.json();
 
-        const comentariosHtml = comentarios.length > 0
+        const comentariosHtml = comentarios?.length > 0
             ? comentarios.map(c => `
                 <div class="p-2 bg-light rounded mb-2">
                     <div class="d-flex justify-content-between">
-                        <strong class="small">${c.autor?.nombre || 'Usuario'}</strong>
+                        <strong class="small">
+                            ${c.autor?.nombre || 'Usuario'}
+                        </strong>
                         <span class="text-muted" style="font-size:0.7rem">
                             ${formatFecha(c.fechaCreacion)}
                         </span>
                     </div>
-                    <p class="mb-0 small">${escapeHtml(c.contenido)}</p>
-                </div>`).join('')
+                    <p class="mb-0 small">
+                        ${escapeHtml(c.contenido)}
+                    </p>
+                </div>
+            `).join('')
             : `<p class="text-muted small">Sin comentarios aún.</p>`;
 
+        // ─────────────────────────────────────────────
+        // BITÁCORA
+        // ─────────────────────────────────────────────
+        const resBitacora = await fetch(
+            `${API}/tickets/${id}/bitacora`,
+            { headers: headers() }
+        );
+
+        const bitacora = await resBitacora.json();
+
+        const bitacoraHtml = Array.isArray(bitacora) && bitacora.length > 0
+    ? bitacora.map(b => {
+
+        const usuario = b.usuario?.nombre ?? 'Sistema';
+
+        const estadoAnterior = b.estadoAnterior?.nombre 
+            ?? b.estadoAnterior 
+            ?? '—';
+
+        const estadoNuevo = b.estadoNuevo?.nombre 
+            ?? b.estadoNuevo 
+            ?? '—';
+
+        const fecha = b.fechaCambio 
+            ?? b.fecha 
+            ?? b.fechaCreacion 
+            ?? null;
+
+        return `
+        <div class="border-start border-3 ps-3 mb-3">
+
+            <!-- usuario + fecha -->
+            <div class="d-flex justify-content-between">
+                <strong class="small">${usuario}</strong>
+                <span class="text-muted" style="font-size:0.75rem">
+                    ${formatFecha(fecha)}
+                </span>
+            </div>
+
+            <!-- cambio estado -->
+            <div class="small mt-1">
+                <span class="badge bg-light text-dark">
+                    ${estadoAnterior} → ${estadoNuevo}
+                </span>
+            </div>
+
+            <!-- comentario -->
+            ${b.comentario 
+                ? `<div class="text-muted small mt-1">
+                        ${escapeHtml(b.comentario)}
+                </div>`
+                : ''
+            }
+
+        </div>
+        `;
+    }).join('')
+    : `<p class="text-muted small">Sin historial aún.</p>`;
+
+        // ─────────────────────────────────────────────
+        // RENDER DEL MODAL
+        // ─────────────────────────────────────────────
         document.getElementById('detailContent').innerHTML = `
             <div class="mb-3 border-bottom pb-2">
-                <h5 class="fw-bold">#${ticket.ticketId} - ${escapeHtml(ticket.titulo)}</h5>
+                <h5 class="fw-bold">
+                    #${ticket.ticketId} - ${escapeHtml(ticket.titulo)}
+                </h5>
                 <div class="d-flex gap-2 flex-wrap">
                     ${badgeEstado(ticket.estado?.nombre)}
                     ${badgePrioridad(ticket.prioridad?.nombre)}
                 </div>
             </div>
+
             <div class="row mb-3">
                 <div class="col-6">
                     <div class="text-muted small">Cliente</div>
                     <div class="fw-semibold">${ticket.cliente?.nombre || '—'}</div>
                 </div>
+
                 <div class="col-6">
                     <div class="text-muted small">Agente</div>
                     <div class="fw-semibold">${ticket.agente?.nombre || 'Sin asignar'}</div>
                 </div>
+
                 <div class="col-6 mt-2">
                     <div class="text-muted small">Creado</div>
-                    <div class="fw-semibold">${formatFecha(ticket.fechaCreacion)}</div>
+                    <div class="fw-semibold">
+                        ${formatFecha(ticket.fechaCreacion)}
+                    </div>
                 </div>
+
                 <div class="col-6 mt-2">
                     <div class="text-muted small">Actualizado</div>
-                    <div class="fw-semibold">${formatFecha(ticket.fechaActualizacion)}</div>
+                    <div class="fw-semibold">
+                        ${formatFecha(ticket.fechaActualizacion)}
+                    </div>
                 </div>
             </div>
+
             <div class="p-3 bg-light rounded mb-3">
-                <strong class="small"><i class="fas fa-align-left me-1"></i>Descripción:</strong>
-                <p class="mb-0 mt-1 small">${escapeHtml(ticket.descripcionInicial)}</p>
+                <strong class="small">
+                    <i class="fas fa-align-left me-1"></i>Descripción:
+                </strong>
+                <p class="mb-0 mt-1 small">
+                    ${escapeHtml(ticket.descripcionInicial)}
+                </p>
             </div>
+
             <hr>
+
+            <!-- ESTADOS -->
             <div class="mb-2 fw-semibold">
                 <i class="fas fa-tasks me-1"></i> Cambiar estado:
             </div>
+
             <div class="d-flex flex-wrap gap-2 mb-4">
                 <button onclick="cambiarEstado(${ticket.ticketId}, 1)"
                     class="btn btn-sm btn-warning">🟡 Abierto</button>
+
                 <button onclick="cambiarEstado(${ticket.ticketId}, 2)"
                     class="btn btn-sm btn-info text-white">🔄 En Proceso</button>
+
                 <button onclick="cambiarEstado(${ticket.ticketId}, 4)"
                     class="btn btn-sm btn-success">✅ Resuelto</button>
+
                 <button onclick="cambiarEstado(${ticket.ticketId}, 5)"
                     class="btn btn-sm btn-secondary">🔒 Cerrado</button>
             </div>
+
             <hr>
+
+            <!-- COMENTARIOS -->
             <div class="mb-2 fw-semibold">
                 <i class="fas fa-comments me-1"></i> Comentarios:
             </div>
+
             <div id="comentariosContainer" class="mb-3">
                 ${comentariosHtml}
             </div>
-            <div>
-                <textarea id="nuevoComentario" class="form-control form-control-sm mb-2"
-                    rows="2" placeholder="Añadir comentario..."></textarea>
+
+            <div class="mb-3">
+                <textarea id="nuevoComentario"
+                    class="form-control form-control-sm mb-2"
+                    rows="2"
+                    placeholder="Añadir comentario..."></textarea>
+
                 <button class="btn btn-sm btn-primary"
                     onclick="agregarComentario(${ticket.ticketId})">
                     <i class="fas fa-paper-plane me-1"></i> Enviar comentario
                 </button>
-            </div>`;
+            </div>
 
+            <hr>
+
+            <!-- BITÁCORA -->
+            <div class="mb-2 fw-semibold">
+                <i class="fas fa-history me-1"></i> Historial (Bitácora):
+            </div>
+
+            <div id="bitacoraContainer" class="mb-3">
+                ${bitacoraHtml}
+            </div>
+        `;
+
+        // DELETE BUTTON
         document.getElementById('deleteFromDetailBtn').onclick =
             () => eliminarTicket(ticket.ticketId);
 
-        new bootstrap.Modal(document.getElementById('detailModal')).show();
+        new bootstrap.Modal(
+            document.getElementById('detailModal')
+        ).show();
 
     } catch (err) {
         console.error('Error cargando detalle:', err);

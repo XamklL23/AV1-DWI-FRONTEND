@@ -166,20 +166,42 @@
 <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
+
             <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title" id="detailModalLabel"><i class="fas fa-info-circle me-2"></i> Detalle del Ticket</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title" id="detailModalLabel">
+                    <i class="fas fa-info-circle me-2"></i> Detalle del Ticket
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
+
+            <!-- 🔥 TODO EL CONTENIDO DEL TICKET -->
             <div class="modal-body" id="detailContent">
-                <!-- contenido dinámico -->
+                <!-- contenido dinámico del ticket -->
+
+                <!-- 🔥 BITÁCORA AQUÍ DENTRO -->
+                <hr>
+                <div class="mb-2 fw-semibold">
+                    <i class="fas fa-history me-1"></i> Historial (Bitácora):
+                </div>
+
+                <div id="bitacoraContainer" class="mb-3">
+                    <p class="text-muted small">Cargando historial...</p>
+                </div>
             </div>
+
             <div class="modal-footer">
-                <button type="button" class="btn btn-danger" id="deleteFromDetailBtn"><i class="fas fa-trash-alt"></i> Eliminar</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-danger" id="deleteFromDetailBtn">
+                    <i class="fas fa-trash-alt"></i> Eliminar
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cerrar
+                </button>
             </div>
+
         </div>
     </div>
 </div>
+
 <script>
 // Mostrar nombre usuario
 document.addEventListener('DOMContentLoaded', () => {
