@@ -63,17 +63,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Búsqueda
-    document.getElementById('searchTicket').addEventListener('input', async (e) => {
-        const q = e.target.value.trim();
-        if (q.length < 2) { cargarTickets(); return; }
+    let timeoutBusqueda;
+    let filtroActual = null;
+
+    document.getElementById('searchTicket').addEventListener('input', (e) => {
+    clearTimeout(timeoutBusqueda);
+
+    const q = e.target.value.trim();
+
+    timeoutBusqueda = setTimeout(async () => {
+
         try {
-            const res  = await fetch(`${API}/tickets?search=${q}`, { headers: headers() });
+            const url = new URL(`${API}/tickets`);
+
+            if (q.length > 0) {
+                url.searchParams.append('search', q);
+            }
+
+            if (filtroActual) {
+                url.searchParams.append('estado', filtroActual);
+            }
+
+            const res = await fetch(url, { headers: headers() });
             const data = await res.json();
+
             renderizarTickets(data.content || []);
+
         } catch (err) {
             console.error('Error buscando:', err);
         }
-    });
+
+    }, 400);
+});
 });
 
 // ── HEADERS ───────────────────────────────────────────────────
@@ -475,17 +496,33 @@ async function agregarComentario(ticketId) {
 
 // ── ELIMINAR TICKET ───────────────────────────────────────────
 async function eliminarTicket(id) {
-    if (!confirm(`¿Eliminar permanentemente el ticket #${id}?`)) return;
     try {
-        await fetch(`${API}/tickets/${id}`, {
+        const confirmacion = confirm(`¿Eliminar ticket #${id}?`);
+        if (!confirmacion) return;
+
+        const res = await fetch(`${API}/tickets/${id}`, {
             method: 'DELETE',
             headers: headers()
         });
+
+        const text = await res.text();
+
+        console.log("STATUS:", res.status);
+        console.log("RESPONSE:", text);
+
+        if (!res.ok) {
+            throw new Error(text || "Error eliminando ticket");
+        }
+
         bootstrap.Modal.getInstance(
-            document.getElementById('detailModal')).hide();
+            document.getElementById('detailModal')
+        )?.hide();
+
         cargarTickets();
+
     } catch (err) {
         console.error('Error eliminando ticket:', err);
+        alert("No se pudo eliminar el ticket");
     }
 }
 

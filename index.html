@@ -26,7 +26,7 @@
                 <i class="fas fa-plus-circle me-1"></i> Nuevo Ticket
             </button>
         </div>
-        <button id="logoutBtn" onclick="logout()" ...>
+        <button id="logoutBtn" onclick="logout()" class="btn btn-outline-danger">
             <i class="fas fa-sign-out-alt"></i> Cerrar sesión
         </button>
     </div>
@@ -106,7 +106,7 @@
         </div>
     </div>
     <footer>
-        <i class="far fa-clock"></i> Sistema demo · Los tickets se guardan en tu navegador (localStorage)
+        </i> &copy HelpDesk Pro - Todos los derechos reservados 2026
     </footer>
 </div>
 
@@ -168,35 +168,27 @@
         <div class="modal-content">
 
             <div class="modal-header bg-dark text-white">
-                <h5 class="modal-title" id="detailModalLabel">
+                <h5 class="modal-title">
                     <i class="fas fa-info-circle me-2"></i> Detalle del Ticket
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
 
-            <!-- 🔥 TODO EL CONTENIDO DEL TICKET -->
-            <div class="modal-body" id="detailContent">
-                <!-- contenido dinámico del ticket -->
+            <!-- SOLO DETALLE -->
+            <div class="modal-body">
+    <div id="detailContent"></div>
+    <hr>
+</div>
 
-                <!-- 🔥 BITÁCORA AQUÍ DENTRO -->
-                <hr>
-                <div class="mb-2 fw-semibold">
-                    <i class="fas fa-history me-1"></i> Historial (Bitácora):
-                </div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-danger" id="deleteFromDetailBtn">
+        <i class="fas fa-trash-alt"></i> Eliminar
+    </button>
 
-                <div id="bitacoraContainer" class="mb-3">
-                    <p class="text-muted small">Cargando historial...</p>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-danger" id="deleteFromDetailBtn">
-                    <i class="fas fa-trash-alt"></i> Eliminar
-                </button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    Cerrar
-                </button>
-            </div>
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+        Cerrar
+    </button>
+</div>
 
         </div>
     </div>
