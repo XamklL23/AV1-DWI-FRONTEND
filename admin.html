@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Admin Panel | Soporte Central</title>
+    <!-- Bootstrap 5 CSS + Icons + Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background: #f4f7fc;
+        }
+
+        .table-responsive-custom {
+            overflow-x: auto;
+        }
+
+        .badge-priority {
+            font-size: 0.75rem;
+            padding: 0.35em 0.65em;
+        }
+
+        .role-badge {
+            background-color: #e9ecef;
+            color: #2c3e50;
+        }
+
+        .role-admin {
+            background-color: #8b5cf6;
+            color: white;
+        }
+
+        .role-agente {
+            background-color: #0ea5e9;
+            color: white;
+        }
+
+        .role-cliente {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .nav-tabs .nav-link {
+            font-weight: 500;
+            color: #1e293b;
+            border: none;
+            border-bottom: 2px solid transparent;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: #0d6efd;
+            border-bottom-color: #0d6efd;
+            background: transparent;
+        }
+
+        .card-header {
+            background: white;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-weight: 600;
+        }
+
+        .hover-shadow-tr:hover {
+            background-color: #f8fafc;
+            transition: 0.2s;
+        }
+
+        .filter-bar {
+            background: #ffffffd9;
+            border-radius: 40px;
+            padding: 6px 12px;
+        }
+
+        footer {
+            font-size: 0.8rem;
+            text-align: center;
+            margin-top: 3rem;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+            padding-top: 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container py-3 py-md-4">
+        <!-- Header / Admin Bar -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 pb-2 border-bottom">
+            <div>
+                <h1 class="display-6 fw-semibold" style="color: #1e2a3e;">
+                    <i class="fas fa-shield-alt text-primary me-2"></i> Panel de Administración
+                </h1>
+                <p class="text-muted">Gestión total de usuarios y tickets del sistema</p>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="badge bg-dark align-self-center px-3 py-2"><i class="fas fa-user-cog me-1"></i> <span
+                        id="adminName">Admin</span></span>
+                <button id="logoutAdminBtn" onclick="logoutAdmin()" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-sign-out-alt"></i> Cerrar sesión
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards Resumen -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-4">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-primary bg-opacity-10 rounded-circle p-3"><i
+                                class="fas fa-users fs-4 text-primary"></i></div>
+                        <div><span class="text-secondary small">USUARIOS</span><br><span class="fw-bold fs-3"
+                                id="totalUsers">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-4">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-success bg-opacity-10 rounded-circle p-3"><i
+                                class="fas fa-ticket-alt fs-4 text-success"></i></div>
+                        <div><span class="text-secondary small">TOTAL TICKETS</span><br><span class="fw-bold fs-3"
+                                id="totalTickets">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-4">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-warning bg-opacity-10 rounded-circle p-3"><i
+                                class="fas fa-spinner fs-4 text-warning"></i></div>
+                        <div><span class="text-secondary small">ABIERTOS / PROCESO</span><br><span class="fw-bold fs-3"
+                                id="openTickets">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="card border-0 shadow-sm bg-white rounded-4">
+                    <div class="card-body p-3 d-flex align-items-center gap-3">
+                        <div class="bg-info bg-opacity-10 rounded-circle p-3"><i
+                                class="fas fa-check-circle fs-4 text-info"></i></div>
+                        <div><span class="text-secondary small">RESUELTOS</span><br><span class="fw-bold fs-3"
+                                id="resolvedTickets">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs (Usuarios / Tickets) -->
+        <ul class="nav nav-tabs mb-3" id="adminTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersPanel"
+                    type="button" role="tab"><i class="fas fa-user-friends me-1"></i> Usuarios</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tickets-tab" data-bs-toggle="tab" data-bs-target="#ticketsPanel"
+                    type="button" role="tab"><i class="fas fa-tasks me-1"></i> Tickets (Todos)</button>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <!-- PANEL USUARIOS -->
+            <div class="tab-pane fade show active" id="usersPanel" role="tabpanel">
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center bg-white py-3">
+                        <span><i class="fas fa-database me-2"></i> Listado de usuarios registrados</span>
+                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#userModal"
+                            onclick="openUserModal()">
+                            <i class="fas fa-plus-circle"></i> Nuevo Usuario
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <input type="text" id="searchUser" class="form-control form-control-sm"
+                                    placeholder="🔍 Buscar por nombre o email...">
+                            </div>
+                        </div>
+                        <div class="table-responsive-custom">
+                            <table class="table table-hover align-middle" id="usersTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Rol</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL TICKETS (TODOS) -->
+            <div class="tab-pane fade" id="ticketsPanel" role="tabpanel">
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-header d-flex flex-wrap justify-content-between align-items-center bg-white py-3">
+                        <span><i class="fas fa-ticket-alt me-2"></i> Tickets de soporte (global)</span>
+                        
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 mb-3 align-items-center">
+                            <div class="col-md-4">
+                                <select id="ticketStatusFilter" class="form-select form-select-sm">
+                                    <option value="all">Todos los estados</option>
+                                    <option value="abierto">Abiertos</option>
+                                    <option value="en-proceso">En Proceso</option>
+                                    <option value="resuelto">Resueltos</option>
+                                    <option value="cerrado">Cerrados</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" id="searchTicketGlobal" class="form-control form-control-sm"
+                                    placeholder="🔍 Buscar por título o cliente...">
+                            </div>
+                            <div class="col-md-3 text-md-end">
+                                <span class="badge bg-secondary" id="ticketCountBadge">0 tickets</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive-custom">
+                            <table class="table table-hover align-middle" id="ticketsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Título</th>
+                                        <th>Cliente</th>
+                                        <th>Prioridad</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ticketsList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <footer>
+            <i class="far fa-copyright"></i> Admin HelpDesk Pro - Control total del sistema
+        </footer>
+    </div>
+
+    <!-- MODAL USUARIO (CREAR/EDITAR) -->
+    <div class="modal fade" id="userModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> <span id="userModalTitle">Nuevo
+                            Usuario</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="userForm">
+                        <input type="hidden" id="userId">
+                        <div class="mb-3"><label class="form-label">Nombre completo *</label><input type="text"
+                                class="form-control" id="userNombre" required></div>
+                        <div class="mb-3"><label class="form-label">Email *</label><input type="email"
+                                class="form-control" id="userEmail" required></div>
+                        <div class="mb-3"><label class="form-label">Rol</label><select class="form-select" id="userRol">
+                                <option value="CLIENTE">Cliente</option>
+                                <option value="AGENTE">Agente</option>
+                                <option value="ADMIN">Administrador</option>
+                            </select></div>
+                        <div class="mb-3"><label class="form-label">Contraseña <span class="text-muted">(mínimo 4
+                                    caracteres)</span></label><input type="password" class="form-control"
+                                id="userPassword" placeholder="Dejar en blanco para no cambiar"></div>
+                    </form>
+                </div>
+                <div class="modal-footer"><button class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary"
+                        id="saveUserBtn">Guardar usuario</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL TICKET (CREAR/EDITAR) -->
+    <div class="modal fade" id="ticketAdminModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-pen-alt me-2"></i> <span id="ticketModalTitle">Nuevo
+                            Ticket</span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="ticketAdminForm">
+                        <input type="hidden" id="ticketEditId">
+                        <div class="row g-3">
+                            <div class="col-md-6"><label class="fw-semibold">Título *</label><input type="text"
+                                    class="form-control" id="ticketTitulo" required></div>
+                            <div class="col-md-6"><label class="fw-semibold">Cliente *</label><input type="text"
+                                    class="form-control" id="ticketCliente" required></div>
+                            <div class="col-md-6"><label>Prioridad</label><select class="form-select"
+                                    id="ticketPrioridad">
+                                    <option value="baja">🟢 Baja</option>
+                                    <option value="media" selected>🟠 Media</option>
+                                    <option value="alta">🔴 Alta</option>
+                                </select></div>
+                            <div class="col-md-6"><label>Estado</label><select class="form-select" id="ticketEstado">
+                                    <option value="abierto">Abierto</option>
+                                    <option value="en-proceso">En Proceso</option>
+                                    <option value="resuelto">Resuelto</option>
+                                    <option value="cerrado">Cerrado</option>
+                                </select></div>
+                            <div class="col-12"><label>Descripción</label><textarea class="form-control"
+                                    id="ticketDescripcion" rows="3"></textarea></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer"><button class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cancelar</button><button class="btn btn-primary"
+                        id="saveTicketAdminBtn">Guardar Ticket</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE TICKET (solo lectura + eliminar/editar rápido) -->
+    <div class="modal fade" id="detailTicketModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-dark text-white">
+                    <h5 class="modal-title"><i class="fas fa-info-circle"></i> Detalle del Ticket</h5><button
+                        type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detailTicketContent"></div>
+                <div class="modal-footer"><button class="btn btn-danger" id="deleteTicketFromDetail"><i
+                            class="fas fa-trash"></i> Eliminar</button><button class="btn btn-secondary"
+                        data-bs-dismiss="modal">Cerrar</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+
+</html>

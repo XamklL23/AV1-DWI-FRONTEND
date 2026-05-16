@@ -22,10 +22,19 @@ function formatFecha(fecha) {
 }
 // ── INIT ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    const rol  = user?.rol || 'cliente';
+
+    // ── Ocultar botón "Nuevo Ticket" si es agente
+    const newTicketBtn = document.getElementById('newTicketBtn');
+    if (rol === 'agente') {
+        newTicketBtn.classList.add('d-none');
+    }
+
     cargarTickets();
 
     // Botón nuevo ticket: resetear form
-    document.getElementById('newTicketBtn').addEventListener('click', () => {
+    newTicketBtn.addEventListener('click', () => {
         document.getElementById('ticketForm').reset();
         document.getElementById('ticketId').value = '';
         document.getElementById('prioridad').value = 'media';
@@ -41,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('saveTicketBtn').addEventListener('click', guardarTicket);
 
     // Filtros
+    let filtroActual = null;
     document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.filter-btn').forEach(b =>
@@ -54,7 +64,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 'resuelto':   'Resuelto',
                 'cerrado':    'Cerrado'
             };
-            cargarTickets(estadoMap[btn.dataset.filter]);
+            filtroActual = estadoMap[btn.dataset.filter];
+            cargarTickets(filtroActual);
         });
 
         if (btn.dataset.filter === 'all') {
@@ -64,37 +75,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Búsqueda
     let timeoutBusqueda;
-    let filtroActual = null;
 
     document.getElementById('searchTicket').addEventListener('input', (e) => {
-    clearTimeout(timeoutBusqueda);
+        clearTimeout(timeoutBusqueda);
+        const q = e.target.value.trim();
 
-    const q = e.target.value.trim();
+        timeoutBusqueda = setTimeout(async () => {
+            try {
+                const url = new URL(`${API}/tickets`);
 
-    timeoutBusqueda = setTimeout(async () => {
+                if (q.length > 0) {
+                    url.searchParams.append('search', q);
+                }
+                if (filtroActual) {
+                    url.searchParams.append('estado', filtroActual);
+                }
 
-        try {
-            const url = new URL(`${API}/tickets`);
+                const res  = await fetch(url, { headers: headers() });
+                const data = await res.json();
+                renderizarTickets(data.content || []);
 
-            if (q.length > 0) {
-                url.searchParams.append('search', q);
+            } catch (err) {
+                console.error('Error buscando:', err);
             }
-
-            if (filtroActual) {
-                url.searchParams.append('estado', filtroActual);
-            }
-
-            const res = await fetch(url, { headers: headers() });
-            const data = await res.json();
-
-            renderizarTickets(data.content || []);
-
-        } catch (err) {
-            console.error('Error buscando:', err);
-        }
-
-    }, 400);
-});
+        }, 400);
+    });
 });
 
 // ── HEADERS ───────────────────────────────────────────────────
@@ -112,7 +117,7 @@ async function cargarTickets(estado = null) {
             ? `${API}/tickets?estado=${estado}`
             : `${API}/tickets`;
 
-        const res  = await fetch(url, { headers: headers() });
+        const res = await fetch(url, { headers: headers() });
 
         if (res.status === 401 || res.status === 403) {
             localStorage.removeItem('token');
@@ -121,7 +126,7 @@ async function cargarTickets(estado = null) {
             return;
         }
 
-        const data    = await res.json();
+        const data = await res.json();
         const tickets = data.content || [];
 
         actualizarContadores(tickets);
@@ -159,7 +164,53 @@ function renderizarTickets(tickets) {
     let html = `<div class="row g-3">`;
     tickets.forEach(ticket => {
         const fechaFormateada = formatFecha(ticket.fechaCreacion);
+        const cerrado = ticket.estado?.nombre === 'Cerrado';
+
         html += `
+            <div class="col-md-6 col-xl-4">
+                <div class="card h-100 shadow-sm border-0 rounded-3
+                     ${cerrado ? 'opacity-50' : ''}"
+                     style="
+                        border-left: 4px solid ${cerrado ? '#adb5bd' : colorPrioridad(ticket.prioridad?.nombre)} !important;
+                        cursor: ${cerrado ? 'not-allowed' : 'pointer'};
+                     "
+                     ${cerrado ? '' : `onclick="abrirDetalleTicket(${ticket.ticketId})"`}>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title fw-bold mb-0 fs-6
+                                ${cerrado ? 'text-decoration-line-through text-muted' : ''}">
+                                ${escapeHtml(ticket.titulo)}
+                            </h5>
+                            <div class="d-flex flex-column gap-1 align-items-end">
+                                ${badgeEstado(ticket.estado?.nombre)}
+                                ${cerrado ? '<span class="badge bg-secondary" style="font-size:0.65rem">🔒 No editable</span>' : ''}
+                            </div>
+                        </div>
+                        <p class="text-muted small mb-2">
+                            <i class="fas fa-user me-1"></i>${ticket.cliente?.nombre || 'Sin cliente'}
+                        </p>
+                        <p class="small text-muted">
+                            ${escapeHtml((ticket.descripcionInicial || '').substring(0, 80))}
+                            ${(ticket.descripcionInicial || '').length > 80 ? '...' : ''}
+                        </p>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            ${badgePrioridad(ticket.prioridad?.nombre)}
+                            <span class="small text-muted">
+                                <i class="far fa-clock me-1"></i>${fechaFormateada}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    });
+    html += `</div>`;
+    container.innerHTML = html;
+}
+
+let html = `<div class="row g-3">`;
+tickets.forEach(ticket => {
+    const fechaFormateada = formatFecha(ticket.fechaCreacion);
+    html += `
             <div class="col-md-6 col-xl-4">
                 <div class="card h-100 shadow-sm border-0 rounded-3"
                     style="cursor:pointer; border-left: 4px solid ${colorPrioridad(ticket.prioridad?.nombre)} !important;"
@@ -188,216 +239,199 @@ function renderizarTickets(tickets) {
                     </div>
                 </div>
             </div>`;
-    });
-    html += `</div>`;
-    container.innerHTML = html;
-}
+});
+html += `</div>`;
+container.innerHTML = html;
+
 
 // ── DETALLE TICKET ────────────────────────────────────────────
 async function abrirDetalleTicket(id) {
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    const rol  = user?.rol || 'cliente';
+
     try {
-        const res = await fetch(`${API}/tickets/${id}`, { headers: headers() });
+        const res    = await fetch(`${API}/tickets/${id}`, { headers: headers() });
         const ticket = await res.json();
 
-        // ─────────────────────────────────────────────
-        // COMENTARIOS
-        // ─────────────────────────────────────────────
         const resComentarios = await fetch(
-            `${API}/tickets/${id}/comments`,
-            { headers: headers() }
-        );
-
+            `${API}/tickets/${id}/comments`, { headers: headers() });
         const comentarios = await resComentarios.json();
 
-        const comentariosHtml = comentarios?.length > 0
+        const resBitacora = await fetch(
+            `${API}/tickets/${id}/bitacora`, { headers: headers() });
+        const bitacora = await resBitacora.json();
+
+        const cerrado = ticket.estado?.nombre === 'Cerrado';
+
+        // ── Botones de estado según rol ──────────────────────
+        const botonesEstado = () => {
+            if (cerrado) {
+                return `<div class="alert alert-secondary py-2 small">
+                    🔒 Este ticket está cerrado y no puede modificarse.
+                </div>`;
+            }
+            if (rol === 'cliente') {
+                return `<div class="alert alert-info py-2 small">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Solo puedes visualizar este ticket.
+                </div>`;
+            }
+            if (rol === 'agente') {
+                return `
+                <div class="mb-2 fw-semibold">
+                    <i class="fas fa-tasks me-1"></i> Gestionar estado:
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 2)"
+                        class="btn btn-sm btn-info text-white">🔄 En Proceso</button>
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 4)"
+                        class="btn btn-sm btn-success">✅ Resuelto</button>
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 5)"
+                        class="btn btn-sm btn-secondary">🔒 Cerrar</button>
+                </div>`;
+            }
+            // Admin — todos los estados
+            return `
+                <div class="mb-2 fw-semibold">
+                    <i class="fas fa-tasks me-1"></i> Cambiar estado:
+                </div>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 1)"
+                        class="btn btn-sm btn-warning">🟡 Abierto</button>
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 2)"
+                        class="btn btn-sm btn-info text-white">🔄 En Proceso</button>
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 3)"
+                        class="btn btn-sm btn-primary">⏳ Pendiente</button>
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 4)"
+                        class="btn btn-sm btn-success">✅ Resuelto</button>
+                    <button onclick="cambiarEstado(${ticket.ticketId}, 5)"
+                        class="btn btn-sm btn-secondary">🔒 Cerrar</button>
+                </div>`;
+        };
+
+        // ── Asignar agente (solo admin) ───────────────────────
+        const seccionAsignar = rol === 'admin' && !cerrado ? `
+            <hr>
+            <div class="mb-2 fw-semibold">
+                <i class="fas fa-user-check me-1"></i> Asignar agente:
+            </div>
+            <div class="d-flex gap-2">
+                <input type="number" id="agenteIdInput"
+                    class="form-control form-control-sm" placeholder="ID del agente">
+                <button onclick="asignarAgente(${ticket.ticketId})"
+                    class="btn btn-sm btn-outline-primary">
+                    Asignar
+                </button>
+            </div>` : '';
+
+        // ── Sección comentarios (agente y admin) ──────────────
+        const seccionComentarios = (rol === 'agente' || rol === 'admin') && !cerrado ? `
+            <div>
+                <textarea id="nuevoComentario" class="form-control form-control-sm mb-2"
+                    rows="2" placeholder="Añadir comentario..."></textarea>
+                <button class="btn btn-sm btn-primary"
+                    onclick="agregarComentario(${ticket.ticketId})">
+                    <i class="fas fa-paper-plane me-1"></i> Enviar comentario
+                </button>
+            </div>` : '';
+
+        // ── Bitácora ──────────────────────────────────────────
+        const bitacoraHtml = bitacora.length > 0
+            ? `<table class="table table-sm table-bordered small">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Estado anterior</th>
+                        <th>Estado nuevo</th>
+                        <th>Usuario</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${bitacora.map(b => `
+                        <tr>
+                            <td>${formatFecha(b.fechaCambio)}</td>
+                            <td>${b.estadoAnterior?.nombre || '—'}</td>
+                            <td><strong>${b.estadoNuevo?.nombre || '—'}</strong></td>
+                            <td>${b.usuario?.nombre || '—'}</td>
+                            <td class="text-muted">${b.comentario || '—'}</td>
+                        </tr>`).join('')}
+                </tbody>
+               </table>`
+            : `<p class="text-muted small">Sin registros en bitácora.</p>`;
+
+        const comentariosHtml = comentarios.length > 0
             ? comentarios.map(c => `
                 <div class="p-2 bg-light rounded mb-2">
                     <div class="d-flex justify-content-between">
-                        <strong class="small">
-                            ${c.autor?.nombre || 'Usuario'}
-                        </strong>
+                        <strong class="small">${c.autor?.nombre || 'Usuario'}</strong>
                         <span class="text-muted" style="font-size:0.7rem">
                             ${formatFecha(c.fechaCreacion)}
                         </span>
                     </div>
-                    <p class="mb-0 small">
-                        ${escapeHtml(c.contenido)}
-                    </p>
-                </div>
-            `).join('')
+                    <p class="mb-0 small">${escapeHtml(c.contenido)}</p>
+                </div>`).join('')
             : `<p class="text-muted small">Sin comentarios aún.</p>`;
 
-        // ─────────────────────────────────────────────
-        // BITÁCORA
-        // ─────────────────────────────────────────────
-        const resBitacora = await fetch(
-            `${API}/tickets/${id}/bitacora`,
-            { headers: headers() }
-        );
-
-        const bitacora = await resBitacora.json();
-
-        const bitacoraHtml = Array.isArray(bitacora) && bitacora.length > 0
-    ? bitacora.map(b => {
-
-        const usuario = b.usuario?.nombre ?? 'Sistema';
-
-        const estadoAnterior = b.estadoAnterior?.nombre 
-            ?? b.estadoAnterior 
-            ?? '—';
-
-        const estadoNuevo = b.estadoNuevo?.nombre 
-            ?? b.estadoNuevo 
-            ?? '—';
-
-        const fecha = b.fechaCambio 
-            ?? b.fecha 
-            ?? b.fechaCreacion 
-            ?? null;
-
-        return `
-        <div class="border-start border-3 ps-3 mb-3">
-
-            <!-- usuario + fecha -->
-            <div class="d-flex justify-content-between">
-                <strong class="small">${usuario}</strong>
-                <span class="text-muted" style="font-size:0.75rem">
-                    ${formatFecha(fecha)}
-                </span>
-            </div>
-
-            <!-- cambio estado -->
-            <div class="small mt-1">
-                <span class="badge bg-light text-dark">
-                    ${estadoAnterior} → ${estadoNuevo}
-                </span>
-            </div>
-
-            <!-- comentario -->
-            ${b.comentario 
-                ? `<div class="text-muted small mt-1">
-                        ${escapeHtml(b.comentario)}
-                </div>`
-                : ''
-            }
-
-        </div>
-        `;
-    }).join('')
-    : `<p class="text-muted small">Sin historial aún.</p>`;
-
-        // ─────────────────────────────────────────────
-        // RENDER DEL MODAL
-        // ─────────────────────────────────────────────
         document.getElementById('detailContent').innerHTML = `
             <div class="mb-3 border-bottom pb-2">
-                <h5 class="fw-bold">
-                    #${ticket.ticketId} - ${escapeHtml(ticket.titulo)}
-                </h5>
+                <h5 class="fw-bold">#${ticket.ticketId} - ${escapeHtml(ticket.titulo)}</h5>
                 <div class="d-flex gap-2 flex-wrap">
                     ${badgeEstado(ticket.estado?.nombre)}
                     ${badgePrioridad(ticket.prioridad?.nombre)}
                 </div>
             </div>
-
             <div class="row mb-3">
                 <div class="col-6">
                     <div class="text-muted small">Cliente</div>
                     <div class="fw-semibold">${ticket.cliente?.nombre || '—'}</div>
                 </div>
-
                 <div class="col-6">
                     <div class="text-muted small">Agente</div>
                     <div class="fw-semibold">${ticket.agente?.nombre || 'Sin asignar'}</div>
                 </div>
-
                 <div class="col-6 mt-2">
                     <div class="text-muted small">Creado</div>
-                    <div class="fw-semibold">
-                        ${formatFecha(ticket.fechaCreacion)}
-                    </div>
+                    <div class="fw-semibold">${formatFecha(ticket.fechaCreacion)}</div>
                 </div>
-
                 <div class="col-6 mt-2">
                     <div class="text-muted small">Actualizado</div>
-                    <div class="fw-semibold">
-                        ${formatFecha(ticket.fechaActualizacion)}
-                    </div>
+                    <div class="fw-semibold">${formatFecha(ticket.fechaActualizacion)}</div>
                 </div>
             </div>
-
             <div class="p-3 bg-light rounded mb-3">
                 <strong class="small">
                     <i class="fas fa-align-left me-1"></i>Descripción:
                 </strong>
-                <p class="mb-0 mt-1 small">
-                    ${escapeHtml(ticket.descripcionInicial)}
-                </p>
+                <p class="mb-0 mt-1 small">${escapeHtml(ticket.descripcionInicial)}</p>
             </div>
-
             <hr>
-
-            <!-- ESTADOS -->
-            <div class="mb-2 fw-semibold">
-                <i class="fas fa-tasks me-1"></i> Cambiar estado:
-            </div>
-
-            <div class="d-flex flex-wrap gap-2 mb-4">
-                <button onclick="cambiarEstado(${ticket.ticketId}, 1)"
-                    class="btn btn-sm btn-warning">🟡 Abierto</button>
-
-                <button onclick="cambiarEstado(${ticket.ticketId}, 2)"
-                    class="btn btn-sm btn-info text-white">🔄 En Proceso</button>
-
-                <button onclick="cambiarEstado(${ticket.ticketId}, 4)"
-                    class="btn btn-sm btn-success">✅ Resuelto</button>
-
-                <button onclick="cambiarEstado(${ticket.ticketId}, 5)"
-                    class="btn btn-sm btn-secondary">🔒 Cerrado</button>
-            </div>
-
+            ${botonesEstado()}
+            ${seccionAsignar}
             <hr>
-
-            <!-- COMENTARIOS -->
             <div class="mb-2 fw-semibold">
                 <i class="fas fa-comments me-1"></i> Comentarios:
             </div>
-
             <div id="comentariosContainer" class="mb-3">
                 ${comentariosHtml}
             </div>
-
-            <div class="mb-3">
-                <textarea id="nuevoComentario"
-                    class="form-control form-control-sm mb-2"
-                    rows="2"
-                    placeholder="Añadir comentario..."></textarea>
-
-                <button class="btn btn-sm btn-primary"
-                    onclick="agregarComentario(${ticket.ticketId})">
-                    <i class="fas fa-paper-plane me-1"></i> Enviar comentario
-                </button>
-            </div>
-
+            ${seccionComentarios}
             <hr>
-
-            <!-- BITÁCORA -->
             <div class="mb-2 fw-semibold">
-                <i class="fas fa-history me-1"></i> Historial (Bitácora):
+                <i class="fas fa-history me-1"></i> Bitácora:
             </div>
+            ${bitacoraHtml}`;
 
-            <div id="bitacoraContainer" class="mb-3">
-                ${bitacoraHtml}
-            </div>
-        `;
+        // Botón eliminar — solo admin y ticket no cerrado
+        const deleteBtn = document.getElementById('deleteFromDetailBtn');
+        if (rol === 'admin' && !cerrado) {
+            deleteBtn.classList.remove('d-none');
+            deleteBtn.onclick = () => eliminarTicket(ticket.ticketId);
+        } else {
+            deleteBtn.classList.add('d-none');
+        }
 
-        // DELETE BUTTON
-        document.getElementById('deleteFromDetailBtn').onclick =
-            () => eliminarTicket(ticket.ticketId);
-
-        new bootstrap.Modal(
-            document.getElementById('detailModal')
-        ).show();
+        new bootstrap.Modal(document.getElementById('detailModal')).show();
 
     } catch (err) {
         console.error('Error cargando detalle:', err);
@@ -406,17 +440,43 @@ async function abrirDetalleTicket(id) {
 
 // ── GUARDAR TICKET ────────────────────────────────────────────
 async function guardarTicket() {
-    const titulo = document.getElementById('titulo').value.trim();
-    const descripcionInicial = document.getElementById('descripcion').value.trim();
-    const prioridadNombre = document.getElementById('prioridad').value;
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    const rol  = user?.rol || 'cliente';
 
-    if (!titulo) {
-        alert('El título es obligatorio');
+    // Agente no puede crear tickets
+    if (rol === 'agente') {
+        alert('Los agentes no pueden crear tickets.');
         return;
     }
 
+    const titulo             = document.getElementById('titulo').value.trim();
+    const descripcionInicial = document.getElementById('descripcion').value.trim();
+    const prioridadNombre    = document.getElementById('prioridad').value;
+
+    if (!titulo) { alert('El título es obligatorio'); return; }
+
+    // Validar máximo 6 tickets pendientes para cliente
+    if (rol === 'cliente') {
+        try {
+            const res  = await fetch(`${API}/tickets`, { headers: headers() });
+            const data = await res.json();
+            const ticketsPendientes = (data.content || []).filter(t =>
+                t.estado?.nombre !== 'Cerrado' &&
+                t.estado?.nombre !== 'Resuelto'
+            );
+            if (ticketsPendientes.length >= 6) {
+                alert('Has alcanzado el límite de 6 tickets pendientes. Resuelve o cierra alguno antes de crear uno nuevo.');
+                bootstrap.Modal.getInstance(
+                    document.getElementById('ticketModal')).hide();
+                return;
+            }
+        } catch (err) {
+            console.error('Error verificando límite:', err);
+        }
+    }
+
     const prioridadMap = { baja: 1, media: 2, alta: 3, critica: 4 };
-    const prioridadId = prioridadMap[prioridadNombre] || 2;
+    const prioridadId  = prioridadMap[prioridadNombre] || 2;
 
     try {
         const res = await fetch(`${API}/tickets`, {
@@ -425,24 +485,16 @@ async function guardarTicket() {
             body: JSON.stringify({ titulo, descripcionInicial, prioridadId })
         });
 
-        const text = await res.text();
+        if (!res.ok) throw new Error('Error al crear ticket');
 
-        if (!res.ok) {
-            console.error("ERROR BACKEND:", text);
-            throw new Error(text);
-        }
-
-        // 🔥 FIX MODAL LIMPIO
-        const modalEl = document.getElementById('ticketModal');
-        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.hide();
-
+        bootstrap.Modal.getInstance(
+            document.getElementById('ticketModal')).hide();
         document.getElementById('ticketForm').reset();
         cargarTickets();
 
     } catch (err) {
         console.error('Error guardando ticket:', err);
-        alert(err.message);
+        alert('Error al guardar el ticket.');
     }
 }
 
@@ -526,14 +578,29 @@ async function eliminarTicket(id) {
     }
 }
 
+async function asignarAgente(ticketId) {
+    const agenteId = document.getElementById('agenteIdInput').value;
+    if (!agenteId) { alert('Ingresa el ID del agente'); return; }
+
+    try {
+        await fetch(`${API}/tickets/${ticketId}/asignar/${agenteId}`, {
+            method: 'PATCH',
+            headers: headers()
+        });
+        abrirDetalleTicket(ticketId);
+    } catch (err) {
+        console.error('Error asignando agente:', err);
+    }
+}
+
 // ── HELPERS ───────────────────────────────────────────────────
 function badgeEstado(nombre) {
     const map = {
-        'Abierto':    'bg-warning text-dark',
+        'Abierto': 'bg-warning text-dark',
         'En Proceso': 'bg-info text-white',
-        'Pendiente':  'bg-secondary text-white',
-        'Resuelto':   'bg-success text-white',
-        'Cerrado':    'bg-dark text-white',
+        'Pendiente': 'bg-secondary text-white',
+        'Resuelto': 'bg-success text-white',
+        'Cerrado': 'bg-dark text-white',
     };
     const cls = map[nombre] || 'bg-secondary text-white';
     return `<span class="badge ${cls}">${nombre || 'Sin estado'}</span>`;
@@ -541,9 +608,9 @@ function badgeEstado(nombre) {
 
 function badgePrioridad(nombre) {
     const map = {
-        'Baja':    'bg-success',
-        'Media':   'bg-warning text-dark',
-        'Alta':    'bg-danger',
+        'Baja': 'bg-success',
+        'Media': 'bg-warning text-dark',
+        'Alta': 'bg-danger',
         'Critica': 'bg-danger',
     };
     const cls = map[nombre] || 'bg-secondary';
@@ -552,9 +619,9 @@ function badgePrioridad(nombre) {
 
 function colorPrioridad(nombre) {
     const map = {
-        'Baja':    '#198754',
-        'Media':   '#ffc107',
-        'Alta':    '#dc3545',
+        'Baja': '#198754',
+        'Media': '#ffc107',
+        'Alta': '#dc3545',
         'Critica': '#7f0000',
     };
     return map[nombre] || '#6c757d';
